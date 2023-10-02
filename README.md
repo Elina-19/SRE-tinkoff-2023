@@ -159,7 +159,6 @@ teams:
 Для автоматической регистрации target-a можно использовать DNS service discovery. Для этого в файле prometheus.yml вместо static_configs необходимо прописать 
 
 ```yaml
----
 dns_sd_configs:
   - names:
       - oncall-web
