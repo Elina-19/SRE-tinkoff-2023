@@ -1,0 +1,120 @@
+Index: configs/prometheus.yml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/configs/prometheus.yml b/configs/prometheus.yml
+new file mode 100644
+--- /dev/null	(date 1696180819329)
++++ b/configs/prometheus.yml	(date 1696180819329)
+@@ -0,0 +1,11 @@
++global:
++  scrape_interval: "1m"
++  scrape_timeout: "10s"
++  evaluation_interval: "1m"
++scrape_configs:
++  - job_name: "prometheus"
++    dns_sd_configs:
++      - names:
++          - oncall-web
++        type: A
++        port: 8081
+\ No newline at end of file
+Index: configs/config.yaml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/configs/config.yaml b/configs/config.yaml
+--- a/configs/config.yaml	(revision e4868c1ce1aef578def8d73bd5a5b21b65ff36bb)
++++ b/configs/config.yaml	(date 1696075349733)
+@@ -5,7 +5,10 @@
+   host: 0.0.0.0
+   port: 8080
+ oncall_host: http://localhost:8080
+-metrics: dummy
++metrics: prometheus
++prometheus:
++  oncall-notifier:
++    server_port: 8081
+ db:
+   conn:
+     kwargs:
+Index: configs/config.docker.yaml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/configs/config.docker.yaml b/configs/config.docker.yaml
+--- a/configs/config.docker.yaml	(revision e4868c1ce1aef578def8d73bd5a5b21b65ff36bb)
++++ b/configs/config.docker.yaml	(date 1696075352549)
+@@ -3,7 +3,10 @@
+   port: 8080
+ debug: True
+ oncall_host: http://localhost:8080
+-metrics: dummy
++metrics: prometheus
++prometheus:
++  oncall-notifier:
++    server_port: 8081
+ db:
+   conn:
+     kwargs:
+Index: Dockerfile
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/Dockerfile b/Dockerfile
+--- a/Dockerfile	(revision e4868c1ce1aef578def8d73bd5a5b21b65ff36bb)
++++ b/Dockerfile	(date 1696177924134)
+@@ -19,7 +19,7 @@
+ RUN chown -R oncall:oncall /home/oncall/source /var/log/nginx /var/lib/nginx \
+     && sudo -Hu oncall mkdir -p /home/oncall/var/log/uwsgi /home/oncall/var/log/nginx /home/oncall/var/run /home/oncall/var/relay \
+     && sudo -Hu oncall python3 -m venv /home/oncall/env \
+-    && sudo -Hu oncall /bin/bash -c 'source /home/oncall/env/bin/activate && cd /home/oncall/source && pip install wheel && pip install .'
++    && sudo -Hu oncall /bin/bash -c 'source /home/oncall/env/bin/activate && cd /home/oncall/source && pip install wheel && pip install .[prometheus]'
+ 
+ COPY ops/config/systemd /etc/systemd/system
+ COPY ops/daemons /home/oncall/daemons
+@@ -29,5 +29,6 @@
+ COPY ops/entrypoint.py /home/oncall/entrypoint.py
+ 
+ EXPOSE 8080
++EXPOSE 8081
+ 
+ CMD ["sudo", "-EHu", "oncall", "bash", "-c", "source /home/oncall/env/bin/activate && python -u /home/oncall/entrypoint.py"]
+Index: docker-compose.yml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/docker-compose.yml b/docker-compose.yml
+--- a/docker-compose.yml	(revision e4868c1ce1aef578def8d73bd5a5b21b65ff36bb)
++++ b/docker-compose.yml	(date 1696076771520)
+@@ -6,6 +6,7 @@
+     hostname: oncall
+     ports:
+       - "8080:8080"
++      - "8081:8081"
+     environment:
+       - DOCKER_DB_BOOTSTRAP=1
+       - IRIS_API_HOST=iris
+@@ -22,6 +23,17 @@
+     networks:
+       - iris
+ 
++  oncall-prometheus:
++    image: prom/prometheus
++    volumes:
++      - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml
++    networks:
++      - iris
++    depends_on:
++      - oncall-web
++    ports:
++      - "9090:9090"
++
+ networks:
+   iris:
+     name: iris
