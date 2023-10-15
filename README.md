@@ -186,7 +186,7 @@ dns_sd_configs:
 
 Пояснения к выбору коллекторов, которые необходимо отключить: 
 
-   -"--no-collector.conntrack" т.к. нет /proc/sys/net/netfilter/
+   - "--no-collector.conntrack" т.к. нет /proc/sys/net/netfilter/
 
    - "--no-collector.hwmon" т.к. не стоит цели мониторить аппаратное обеспечение
 
