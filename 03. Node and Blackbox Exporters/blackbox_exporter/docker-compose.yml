@@ -1,0 +1,81 @@
+version: '3'
+
+services:
+  oncall-web:
+    build: .
+    hostname: oncall
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    environment:
+      - DOCKER_DB_BOOTSTRAP=1
+      - IRIS_API_HOST=iris
+    volumes:
+      - ./configs/config.docker.yaml:/home/oncall/config/config.yaml
+    networks:
+      - iris
+  
+  oncall-mysql:
+    hostname: oncall-mysql
+    image: mysql:5.7
+    environment:
+      - MYSQL_ROOT_PASSWORD=1234
+    networks:
+      - iris
+
+  oncall-prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - iris
+    depends_on:
+      - oncall-web
+    ports:
+      - "9090:9090"
+
+  node-exporter:
+    image: quay.io/prometheus/node-exporter:latest
+    container_name: node_exporter
+    user: root
+    ports:
+      - "9100:9100"
+    pid: host
+    restart: unless-stopped
+    command:
+      - "--path.rootfs=/host"
+      - "--no-collector.conntrack"
+      - "--no-collector.dmi"
+      - "--no-collector.nfs"
+      - "--no-collector.nfsd"
+      - "--no-collector.nvme"
+      - "--no-collector.os"
+      - "--no-collector.pressure"
+      - "--no-collector.rapl"
+      - "--no-collector.tapestats"
+      - "--no-collector.zfs"
+      - "--no-collector.hwmon"
+      - "--collector.textfile.directory=/var/lib/node_exporter/textfile_collector"
+    volumes:
+      - "./:/host:ro,rslave"
+      - metrics:/var/lib/node_exporter/textfile_collector
+    networks:
+      - iris
+
+  blackbox-exporter:
+    image: quay.io/prometheus/blackbox-exporter:latest
+    ports:
+      - "9115:9115"
+    command:
+      - "--config.file=/etc/blackbox_exporter/config.yml"
+    volumes:
+      - ./configs/blackbox.yml:/etc/blackbox_exporter/config.yml
+    networks:
+      - iris
+
+networks:
+  iris:
+    name: iris
+
+volumes:
+  metrics:
