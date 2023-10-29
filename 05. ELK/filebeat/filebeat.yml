@@ -1,0 +1,9 @@
+filebeat.inputs:
+  - type: log
+    paths:
+      - /home/oncall/var/log/*/*.log
+
+output.logstash:
+  hosts: ["logstash:5044"]
+  username: user12
+  password: qwerty007

@@ -253,3 +253,27 @@ dns_sd_configs:
 ## 4.3
 
 Спроектируйте SLO для нашего сервиса по системным метрикам
+
+---
+
+## 5
+
+В рамках курса продолжаем работу по улучшению наблюдаемости сервиса OnCall. В рамках задачи Вам необходимо:
+
+Установить Filebeat, настроить сбор логов с приложения OnCall и отправку в Logstash 
+Установить Logstash, настроить прием логов Filebeat и отправку в Elasticsearch 
+Установить Elasticsearch, настроить прием логов Logstash 
+Установить Kibana, подключить к Elasticsearch 
+Логи приложений Filebeat, Logstash, Elasticsearch, Kibana не должны попадать в Elasticsearch 
+
+В итоге, должна получится следующая цепочка:
+
+OnCall + MySQL -> Filebeat -> Logstash -> Elasticsearch -> Kibana 
+
+В качестве решения приложите архив с конфигурационными файлами Filebeat и Logstash и видео с демонстрацией поиска логов OnCall в ElasticSearch.
+
+---
+
+**[Скринкаст](https://youtu.be/xbOYjN_sp8A)**
+
+---
