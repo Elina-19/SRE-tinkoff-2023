@@ -1,0 +1,18 @@
+filebeat.inputs:
+  - type: log
+    paths:
+      - /home/oncall/var/log/*/*.log
+
+processors:
+  - dissect:
+      tokenizer: "%{ip_address} - - - - [%{timestamp}] \"%{http_method} %{request_path} %{protocol}\" %{status_code|integer} %{response_size} %{response_time} \"%{referrer}\" \"%{user_agent}\" \"%{other}\""
+      field: "message"
+      target_prefix: "dissect"
+  - drop_fields:
+     fields: ["dissect.timestamp", "dissect.http_method", "dissect.request_path", "dissect.protocol", "dissect.response_size", "dissect.response_time", "dissect.referrer", "dissect.user_agent", "dissect.other"]
+     ignore_missing: true
+
+output.logstash:
+  hosts: ["logstash:5044"]
+  username: user12
+  password: qwerty007
