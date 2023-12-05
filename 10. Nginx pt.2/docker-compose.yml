@@ -1,0 +1,187 @@
+version: '3'
+
+services:
+  oncall-web:
+    build: .
+    hostname: oncall
+    ports:
+      - "8079-8080:8080"
+    environment:
+      - DOCKER_DB_BOOTSTRAP=1
+      - IRIS_API_HOST=iris
+    volumes:
+      - ./configs/config.docker.yaml:/home/oncall/config/config.yaml
+      - oncall-log-volume:/home/oncall/var/log
+    deploy:
+      mode: replicated
+      replicas: 2
+    networks:
+      - iris
+  
+  oncall-mysql:
+    hostname: oncall-mysql
+    image: mysql:5.7
+    environment:
+      - MYSQL_ROOT_PASSWORD=1234
+      - mysql-log:/var/log/mysql
+    networks:
+      - iris
+
+  oncall-prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./configs/alert.rules:/etc/prometheus/alert.rules
+    networks:
+      - iris
+    # depends_on:
+    #   - oncall-web
+    ports:
+      - "9090:9090"
+
+  node-exporter:
+    image: quay.io/prometheus/node-exporter:latest
+    container_name: node_exporter
+    user: root
+    ports:
+      - "9100:9100"
+    pid: host
+    restart: unless-stopped
+    command:
+      - "--path.rootfs=/host"
+      - "--no-collector.conntrack"
+      - "--no-collector.dmi"
+      - "--no-collector.nfs"
+      - "--no-collector.nfsd"
+      - "--no-collector.nvme"
+      - "--no-collector.os"
+      - "--no-collector.pressure"
+      - "--no-collector.rapl"
+      - "--no-collector.tapestats"
+      - "--no-collector.zfs"
+      - "--no-collector.hwmon"
+      - "--collector.textfile.directory=/var/lib/node_exporter/textfile_collector"
+    volumes:
+      - "./:/host:ro,rslave"
+      - metrics:/var/lib/node_exporter/textfile_collector
+    networks:
+      - iris
+
+  blackbox-exporter:
+    image: quay.io/prometheus/blackbox-exporter:latest
+    ports:
+      - "9115:9115"
+    command:
+      - "--config.file=/etc/blackbox_exporter/config.yml"
+    volumes:
+      - ./configs/blackbox.yml:/etc/blackbox_exporter/config.yml
+    networks:
+      - iris
+
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter
+    ports:
+      - "9113:9113"
+    command: ["-nginx.scrape-uri", "http://nginx:9999/metrics"]
+    depends_on:
+      - nginx
+    networks:
+      - iris
+
+  filebeat:
+    image: elastic/filebeat:${STACK_VERSION}
+    volumes:
+      - ./configs/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - oncall-log-volume:/home/oncall/var/log
+      - mysql-log:/var/log/mysql
+    command: filebeat -e -strict.perms=false
+    depends_on:
+      - logstash
+    networks:
+      - iris
+
+  logstash:
+    image: logstash:${STACK_VERSION}
+    volumes:
+      - ./configs/logstash/logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+    ports:
+      - "5044:5044"
+      - "9600:9600"
+      - "50000:50000/tcp"
+    environment:
+      - "LOGSTASH_JAVA_OPTS=-Xmx1024m -Xms1024m"
+    depends_on:
+      - elasticsearch
+    networks:
+      - iris
+
+  elasticsearch:
+    image: elasticsearch:${STACK_VERSION}
+    environment:
+      discovery.type: single-node
+      ELASTICSEARCH_USERNAME: ${ELASTICSEARCH_USERNAME}
+      ELASTICSEARCH_PASSWORD: ${ELASTICSEARCH_PASSWORD}
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+      xpack.security.enabled: false
+      xpack.security.transport.ssl.enabled: false
+      xpack.license.self_generated.type: basic
+    volumes:
+      - ./elasticsearch/data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - iris
+
+  kibana:
+    image: kibana:${STACK_VERSION}
+    environment:
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+    networks:
+      - iris
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - 3000:3000
+    networks:
+      - iris
+
+  alertmanager:
+    image: prom/alertmanager
+    container_name: alertmanager
+    hostname: alertmanager
+    environment:
+      TZ: "Europe/Moscow"
+    ports:
+      - 9093:9093
+    volumes:
+      - ./configs/alertmanager/config.yml:/etc/alertmanager/alertmanager.yml
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+    networks:
+      - iris
+
+  nginx:
+    image: nginx
+    volumes:
+      - ./configs/nginx.conf:/etc/nginx/nginx.conf
+    ports:
+      - 9999:9999
+    networks:
+      - iris
+
+networks:
+  iris:
+    name: iris
+
+volumes:
+  metrics:
+  oncall-log-volume:
+  mysql-log:
+    driver: local

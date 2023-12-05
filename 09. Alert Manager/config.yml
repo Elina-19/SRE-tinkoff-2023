@@ -1,0 +1,40 @@
+global:
+  resolve_timeout: 10s
+
+route:
+  group_by: ['alertname', 'severity']
+  group_wait: 3s
+  receiver: 'telegram_bot'
+  routes:
+    - receiver: telegram_bot
+      matchers:
+        - severity="critical"
+    - receiver: telegram_bot_2
+      matchers:
+        - severity="warning"
+      active_time_intervals:
+        - work
+
+time_intervals:
+  - name: work
+    time_intervals:
+      - times:
+        - start_time: 09:00
+          end_time: 18:00
+      - weekdays: ['monday:friday']
+      - location: 'Europe/Moscow'
+
+receivers:
+- name: 'telegram_bot'
+  telegram_configs:
+  - bot_token: ''
+    api_url: 'https://api.telegram.org'
+    chat_id: 
+    parse_mode: 'HTML'
+
+- name: 'telegram_bot_2'
+  telegram_configs:
+  - bot_token: ''
+    api_url: 'https://api.telegram.org'
+    chat_id: 
+    parse_mode: 'HTML'
